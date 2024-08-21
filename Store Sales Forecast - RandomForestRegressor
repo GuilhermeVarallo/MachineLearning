@@ -1,0 +1,103 @@
+%matplotlib inline
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn import linear_model
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+
+def converttonumber(col, df):
+    colvalues = df[col].value_counts()
+    colvaluelist = colvalues.index
+    colvaluesseries = pd.Series(colvaluelist)
+    
+    for ivalue in range(0,len(colvaluesseries)):
+        df[col].replace(colvaluesseries[ivalue], colvaluesseries[colvaluesseries == colvaluesseries[ivalue]].index[0], inplace=True)
+    return df
+
+holidaysdf = pd.read_csv('holidays_events.csv')
+oildf = pd.read_csv('oil.csv')
+storedf= pd.read_csv('stores.csv')
+traindf = pd.read_csv('train.csv')
+testdf = pd.read_csv('test.csv')
+transactionsdf = pd.read_csv('transactions.csv')
+
+mastertraindf = pd.merge(traindf,holidaysdf, on='date', how='left')
+mastertraindf = pd.merge(mastertraindf, oildf, on='date', how='left')
+mastertraindf = pd.merge(mastertraindf, storedf, on='store_nbr', how='left')
+mastertraindf = pd.merge(mastertraindf, transactionsdf, on=['store_nbr', 'date'], how='left')
+mastertraindf.rename(columns={'type_x':'holidaytype', 'type_y':'storetype'}, inplace=True)
+mastertraindf['holidaytype'].fillna('No', inplace=True)
+mastertraindf['test']= 0
+
+numeric_df = mastertraindf.select_dtypes(include=['number'])
+
+f = plt.figure(figsize=(5,5))
+plt.matshow(numeric_df.corr(), fignum=f.number)
+plt.xticks(range(numeric_df.shape[1]), numeric_df.columns, fontsize=14, rotation=45)
+plt.yticks(range(numeric_df.shape[1]), numeric_df.columns, fontsize=14)
+cb = plt.colorbar()
+cb.ax.tick_params(labelsize=14)
+plt.title('Matriz de Correlação', fontsize=15)
+
+mastertraindf[['locale','sales','transactions']].dropna().groupby(by='locale').sum().join(mastertraindf[['locale','sales','transactions']].dropna().groupby(by='locale').count(),on='locale',how='inner',lsuffix='_sum',rsuffix='_count')
+(mastertraindf[['transferred','sales','transactions']].dropna().groupby(by='transferred').sum()).join(mastertraindf[['transferred','sales','transactions']].dropna().groupby(by='transferred').count(), on='transferred',how='inner', lsuffix='_sum', rsuffix='_count')
+mastertraindf.drop(['locale','description','transferred','locale_name'],inplace=True,axis=1)
+mastertraindf.drop(['city', 'state'], inplace=True, axis=1)
+
+mastertraindf['dcoilwtico'].fillna(mastertraindf['dcoilwtico'].mean(), inplace=True)
+mastertraindf['holidaytype'].fillna('No', inplace=True)
+mastertraindf['transactions'].fillna(0, inplace=True)
+mastertraindf = converttonumber('holidaytype', mastertraindf)
+mastertraindf = converttonumber('family',mastertraindf)
+mastertraindf = converttonumber('storetype',mastertraindf)
+
+mastertraindf['date'] = mastertraindf['date'].str.replace('-','')
+mastertestdf = pd.merge(testdf,holidaysdf, on='date', how='left')
+mastertestdf = pd.merge(mastertestdf,oildf,on='date',how='left')
+mastertestdf = pd.merge(mastertestdf,storedf,on='store_nbr',how='left')
+mastertestdf = pd.merge(mastertestdf,transactionsdf,on=['store_nbr','date'], how='left')
+mastertestdf.rename(columns={'type_x':'holidaytype', 'type_y':'storetype'},inplace=True)
+mastertestdf.drop(['locale','locale_name','description'],inplace=True,axis=1)
+mastertestdf['test']=1
+
+mastertestdf['dcoilwtico'].fillna(mastertestdf['dcoilwtico'].mean(),inplace=True)
+mastertestdf['holidaytype'].fillna('No',inplace=True)
+mastertestdf['transactions'].fillna(0,inplace=True)
+mastertestdf = converttonumber('holidaytype', mastertraindf)
+mastertestdf = converttonumber('family', mastertraindf)
+mastertestdf = converttonumber('storetype', mastertraindf)
+mastertestdf['date']= mastertestdf['date'].str.replace('-','')
+
+X = mastertraindf[['id', 'date', 'store_nbr', 'family', 'onpromotion', 'holidaytype', 'dcoilwtico', 'storetype', 'cluster', 'transactions']]
+y = mastertraindf['sales']
+X_submission = mastertestdf[['id', 'date', 'store_nbr', 'family', 'onpromotion', 'holidaytype', 'dcoilwtico', 'storetype', 'cluster', 'transactions']]
+y_submission = mastertestdf['sales']
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2)
+
+X_train.dropna(inplace=True)
+y_train.dropna(inplace=True)
+
+from sklearn.ensemble import RandomForestRegressor
+
+model = RandomForestRegressor(n_estimators=20)
+model.fit(X_train,y_train)
+model.score(X_test,y_test)
+
+X_submission.dropna(inplace=True)
+y_submission.dropna(inplace=True)
+
+y_pred = pd.DataFrame(model.predict(X_submission), index=y_submission.index,columns=['sales']).clip(0.0)
+
+sample_submission = pd.read_csv('sample_submission.csv')
+sample_submission['sales'] = y_pred['sales']
+sample_submission.to_csv('submission.csv', index=False)
+
+from google.colab import files
+
+files.download('submission.csv')
+
+
+
