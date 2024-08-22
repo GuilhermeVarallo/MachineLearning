@@ -1,0 +1,64 @@
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+train_df = pd.read_csv('train.csv')
+test_df = pd.read_csv('test.csv')
+
+train_df.isnull().sum()
+test_df.isnull().sum()
+
+imputer_cols = ['Age', "FoodCourt", "ShoppingMall", "Spa", "VRDeck" ,"RoomService"]
+imputer = SimpleImputer(strategy='median')
+imputer.fit(train_df[imputer_cols])
+train_df[imputer_cols] = imputer.transform(train_df[imputer_cols])
+
+test_df[imputer_cols] = imputer.transform(test_df[imputer_cols])
+
+train_df['HomePlanet'].fillna('N',inplace=True)
+test_df['HomePlanet'].fillna('N', inplace=True)
+
+label_cols = ["HomePlanet", "CryoSleep","Cabin", "Destination" ,"VIP",'Name']
+def label_encoder(train,test,columns):
+    for col in columns:
+        train[col] = train[col].astype(str)
+        test[col] = test[col].astype(str)
+        train[col] = LabelEncoder().fit_transform(train[col])
+        test[col] =  LabelEncoder().fit_transform(test[col])
+    return train, test
+
+train_df ,test_df = label_encoder(train_df,test_df ,label_cols)
+
+
+corr = train_df.corr()
+corr
+
+plt.figure(figsize=(10,10))
+ax = sns.heatmap(train_df.corr(), annot=True)
+plt.show()
+
+
+X_train = train_df.drop(['Name', 'Transported'], axis=1)
+y_train = train_df['Transported']
+X_test = test_df.drop('Name',axis=1)
+
+labencoder = LabelEncoder()
+X_train['PassengerId'] = labencoder.fit_transform(X_train['PassengerId'])
+
+X_test['PassengerId'] = labencoder.fit_transform(X_test['PassengerId'])
+
+model = RandomForestClassifier(n_estimators=20, max_depth=10)
+model.fit(X_train,y_train)
+
+y_pred = model.predict(X_test)
+
+X_test["PassengerId"]= labencoder.inverse_transform(X_test["PassengerId"])
+
+result = pd.DataFrame(
+    {'PassengerId':X_test["PassengerId"] ,
+     'Transported': y_pred})
