@@ -1,0 +1,30 @@
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+
+df_train = pd.read_csv('train.csv')
+df_test = pd.read_csv('test.csv')
+df_train.head()
+
+le = LabelEncoder()
+
+df_train['Resolution_encoded'] = le.fit_transform(df_train['Resolution'])
+df_train['Category_encoded'] = le.fit_transform(df_train['Category'])
+df_train['Descript_encoded'] = le.fit_transform(df_train['Descript'])
+df_train['DayOfWeek_encoded'] = le.fit_transform(df_train['DayOfWeek'])
+df_train['PdDistrict_encoded'] = le.fit_transform(df_train['PdDistrict'])
+df_train['Address_encoded'] = le.fit_transform(df_train['Address'])
+
+df_train.drop(columns={'Resolution','Category','Descript','DayOfWeek','PdDistrict','Address','Dates'},axis=1, inplace=True)
+df_train.rename({'Resolution_encoded':'Resoltuion', 'Category_encoded':'Category','Descript_encoded':'Descript','DayOfWeek_encoded':'DayOfWeek','PdDistrict_encoded':'PdDistrict','Address_encoded':"Address"},inplace=True)
+
+X = df_train.drop('Resolution_encoded',axis=1)
+y = df_train['Resolution_encoded']
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.30)
+
+model = RandomForestClassifier(n_estimators=100, max_depth=5)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+accuracy_score(y_test,y_pred)
