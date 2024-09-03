@@ -1,0 +1,36 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from google.colab import files
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+df_train = pd.read_csv('train.csv')
+df_test = pd.read_csv('test.csv')
+df_train.head()
+
+y = df_train['Survived']
+df_train = df_train[['Pclass','Sex']]
+df_train['Sex'] = df_train['Sex'].map({'female':0, 'male':1}).astype(np.int32)
+
+df_test = df_test[['Pclass','Sex']]
+df_test['Sex'] = df_test['Sex'].map({'female':0, 'male':1}).astype(np.int32)
+df_test.head()
+
+df_train.shape
+df_train.isnull().sum()
+
+X_train, X_test, y_train, y_test = train_test_split(df_train,y, test_size=0.2)
+knn = KNeighborsClassifier()
+knn.fit(X_train, y_train)
+y_pred = knn.predict(X_test)
+accuracy_score(y_test, y_pred)
+result = knn.predict(df_test)
+
+index=df_test['PassengerId']
+df=pd.DataFrame(data=result,index=df_test['PassengerId'],columns=['Survived'])
+df.to_csv('gender_submission.csv',header=True)
+files.download('gender_submission.csv')
+
+
+
